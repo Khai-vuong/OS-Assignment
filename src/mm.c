@@ -88,7 +88,7 @@ int vmap_page_range(struct pcb_t *caller,           // process call
                     struct framephy_struct *frames, // list of the mapped frames
                     struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
 {                                                   // no guarantee all given pages are mapped
-  uint32_t * pte = malloc(sizeof(uint32_t));
+  uint32_t *pte = malloc(sizeof(uint32_t));
   struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
   // int  fpn;
   int pgit = 0;
@@ -98,16 +98,16 @@ int vmap_page_range(struct pcb_t *caller,           // process call
 
   fpit->fp_next = frames;
 
-
   /* TODO map range of frame to address space
    *      [addr to addr + pgnum*PAGING_PAGESZ
-   *      in page table caller->mm->pgd[]
+   *      in page table caller->mm->pgd[]     DONE
    */
 
   pte = caller->mm->pgd[pgnum];
 
   ret_rg->rg_start = addr;
-  ret_rg->rg_end = addr + 0;
+  ret_rg->rg_end = addr + pgnum * PAGING_PAGESZ;
+  pte_set_fpn(pte, fpit->fpn);
 
   /* Tracking for later page replacement activities (if needed)
    * Enqueue new usage page */
