@@ -2,7 +2,7 @@
 #include "cpu.h"
 #include "mem.h"
 #include "mm.h"
-#include <stdio.h>
+
 int calc(struct pcb_t * proc) {
 	return ((unsigned long)proc & 0UL);
 }
@@ -50,8 +50,7 @@ int run(struct pcb_t * proc) {
 	if (proc->pc >= proc->code->size) {
 		return 1;
 	}
-
-
+	
 	struct inst_t ins = proc->code->text[proc->pc];
 	proc->pc++;
 	int stat = 1;
