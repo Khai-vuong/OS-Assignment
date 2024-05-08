@@ -117,7 +117,7 @@ struct pcb_t *get_proc(void) {
     // } else if (ready_queue.size > 0) {
     //     proc = dequeue(&ready_queue);
     // }
-    struct pcb_t * proc = NULL;
+
     if (!empty(&ready_queue)) {
         proc = dequeue(&ready_queue);
     }

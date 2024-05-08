@@ -99,7 +99,7 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
     return 0;
   }
 
-  /* TODO get_free_vmrg_area FAILED handle the region management (Fig.6)*/
+  /* TODO get_free_vmrg_area FAILED handle the region management (Fig.6)      DONE*/
 
   /*Attempt to increate limit to get space */
   struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
@@ -109,10 +109,10 @@ int __alloc(struct pcb_t *caller, int vmaid, int rgid, int size, int *alloc_addr
 
   old_sbrk = cur_vma->sbrk;
 
-  /* TODO INCREASE THE LIMIT
+  /* TODO INCREASE THE LIMIT        DONE
    * inc_vma_limit(caller, vmaid, inc_sz)
    */
-  inc_vma_limit(caller, vmaid, inc_sz);
+  if (inc_vma_limit(caller, vmaid, inc_sz) < 0) {return -1; /*Cannot expand further */}
 
   /*Successful increase limit */
   caller->mm->symrgtbl[rgid].rg_start = old_sbrk;
@@ -448,24 +448,17 @@ struct vm_rg_struct* get_vm_area_node_at_brk(struct pcb_t *caller, int vmaid, in
  */
 int validate_overlap_vm_area(struct pcb_t *caller, int vmaid, int vmastart, int vmaend) {
     //struct vm_area_struct *vma = caller->mm->mmap;
-    struct vm_area_struct *vma = caller->mm->mmap;
+    struct vm_area_struct *vma = get_vma_by_num(caller->mm, vmaid);
 
-    /* TODO: validate the planned memory area is not overlapped */
+    /* TODO: validate the planned memory area is not overlapped     DONE*/
     while (vma != NULL) {
-        // the same vm_id means the same vm_area_struct
-        // vm_area_struct has size 0
-        // if ma->vm_start == vma->vm_end
-        if ((vma->vm_id != vmaid) && (vma->vm_start != vma->vm_end)) {
-            // OVERLAP
-            if ((int)((vmaend - 1 - vma->vm_start) * (vma->vm_end - 1 - vmastart)) >= 0) {
-                return -1;
+        if(vma->vm_id != vmaid)
+          if(vma->vm_start != vma->vm_end)
+            if (OVERLAP(vma->vm_start, vmastart, vma->vm_end, vmaend) || INCLUDE(vma->vm_start, vmastart, vma->vm_end, vmaend))
+            {
+              return -1;
             }
 
-            // INCLUDE
-            if ((int)((vmastart - vma->vm_start) * (vma->vm_end - vmaend)) >= 0) {
-return -1;
-            }
-        }
         vma = vma->vm_next;
     }
     return 0;
@@ -478,7 +471,7 @@ return -1;
  *@inc_sz: increment size 
  *
  */
-int inc_vma_limit(struct pcb_t *caller, int vmaid, int inc_sz)
+int inc_vma_limit(struct pcb_t *caller, int vmaid, int inc_sz)    //Increase vma alloc region [start, sbrk] -> [start, sbrk+size]
 {
   struct vm_rg_struct *newrg = malloc(sizeof(struct vm_rg_struct));
   int inc_amt = PAGING_PAGE_ALIGNSZ(inc_sz);
@@ -511,24 +504,32 @@ int inc_vma_limit(struct pcb_t *caller, int vmaid, int inc_sz)
 int find_victim_page(struct mm_struct *mm, int *retpgn) 
 {
   struct pgn_t *pg = mm->fifo_pgn;
+  int closeFIFO = 0;
   if (!pg)
      return -1;
-  /* TODO: Implement the theorical mechanism to find the victim page */
- while(pg->pg_next && pg->pg_next->pg_next)
- pg = pg->pg_next;
-  
-  if(pg->pg_next)
-  {
-    *retpgn = pg->pg_next->pgn;
-    free(pg->pg_next);
-    pg->pg_next = NULL;
+  /* TODO: Implement the theorical mechanism to find the victim page    DONE*/
+
+  struct pgn_t* cur_pg = mm->fifo_pgn;
+  if (!cur_pg) return -1;
+
+  //Only 1 page in FIFO
+  if (cur_pg->pg_next == NULL) {
+    closeFIFO = 1;
   }
- else
- {
-   *retpgn = pg->pgn;
-    free(pg);
-    mm->fifo_pgn = NULL;
- }
+  
+  while (cur_pg->pg_next) {
+    cur_pg = cur_pg->pg_next;
+  }
+
+  *retpgn = malloc(sizeof(int));
+  if (retpgn == NULL) {
+    return -1;  //Alloc new int fail
+  }
+  *retpgn = cur_pg->pgn;    //Local swap
+  free(cur_pg);
+
+  if (closeFIFO) {mm->fifo_pgn = NULL;}
+
   return 0;
 }
 
