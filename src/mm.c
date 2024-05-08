@@ -84,45 +84,87 @@ int pte_set_fpn(uint32_t *pte, int fpn)
 /*
  * vmap_page_range - map a range of page at aligned address
  */
+// int vmap_page_range(struct pcb_t *caller,           // process call
+//                     int addr,                       // start address which is aligned to pagesz
+//                     int pgnum,                      // num of mapping page
+//                     struct framephy_struct *frames, // list of the mapped frames
+//                     struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
+// {                                                   // no guarantee all given pages are mapped
+//   uint32_t *pte = malloc(sizeof(uint32_t));
+//   struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
+//   // int  fpn;
+//   int pgit = 0;
+//   int pgn = PAGING_PGN(addr);
+
+//   ret_rg->rg_end = ret_rg->rg_start = addr; // at least the very first space is usable
+
+//   fpit->fp_next = frames;
+
+//   /* TODO map range of frame to address space 
+//    *      [addr to addr + pgnum*PAGING_PAGESZ
+//    *      in page table caller->mm->pgd[]     DONE
+//    */
+
+//  /*
+// * dựa vào PAGING_PGN(x) để lấy thứ tự trong page table -> pagetable[i] =fpit->pgn | Một số thông tin khác
+//   * usernumber thì k biết ghi gì
+//   *  một số khác thì tùy chỉnh
+  
+//   */
+//   for(pgit = 0; pgit < pgnum; pgit++) {
+//     fpit = fpit->fp_next;
+//     pgn = PAGING_PGN((addr + pgit*PAGING_PAGESZ));  // index of this page in process's page table
+//     if(fpit) {
+//       pte_set_fpn(&(caller->mm->pgd[pgn]), fpit->fpn);  //set fpn for pte
+
+//     /* Tracking for later page replacement activities (if needed)
+//       * Enqueue new usage page */
+//     enlist_pgn_node(&caller->mm->fifo_pgn, pgn); //pgn+pgit
+//     }
+//   }
+//   ret_rg->rg_end += (pgit-1) * PAGING_PAGESZ;
+
+  
+
+//   return 0;
+// }
+
 int vmap_page_range(struct pcb_t *caller,           // process call
                     int addr,                       // start address which is aligned to pagesz
                     int pgnum,                      // num of mapping page
                     struct framephy_struct *frames, // list of the mapped frames
                     struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
 {                                                   // no guarantee all given pages are mapped
-  uint32_t *pte = malloc(sizeof(uint32_t));
-  struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
+  // uint32_t * pte = malloc(sizeof(uint32_t));
+  struct framephy_struct *fpit = frames;
   // int  fpn;
   int pgit = 0;
-  int pgn = PAGING_PGN(addr);
+  int pgn = PAGING_PGN(addr); // số trang bắt đầu
 
-  ret_rg->rg_end = ret_rg->rg_start = addr; // at least the very first space is usable
+  ret_rg->rg_start = addr; // at least the very first space is usable
+  ret_rg->rg_end = ret_rg->rg_start + pgnum * PAGING_PAGESZ;
+  // trả về vùng nhớ được ánh xạ
 
-  fpit->fp_next = frames;
+  // fpit->fp_next = frames;
 
-  /* TODO map range of frame to address space 
+  /* TODO map range of frame to address space
    *      [addr to addr + pgnum*PAGING_PAGESZ
-   *      in page table caller->mm->pgd[]     DONE
+   *      in page table caller->mm->pgd[]
    */
+  for (; pgit < pgnum; ++pgit)
+  {
 
- /*
-* dựa vào PAGING_PGN(x) để lấy thứ tự trong page table -> pagetable[i] =fpit->pgn | Một số thông tin khác
-  * usernumber thì k biết ghi gì
-  *  một số khác thì tùy chỉnh
-  
-  */
-  for(pgit = 0; pgit < pgnum; pgit++) {
+    if (fpit == NULL)
+      break;
+    pte_set_fpn(&caller->mm->pgd[pgn + pgit], fpit->fpn); // set fpn cho pte
+    // free(fpit);
+    enlist_pgn_node(&caller->mm->fifo_pgn, pgn + pgit);
     fpit = fpit->fp_next;
-    pgn = PAGING_PGN((addr + pgit*PAGING_PAGESZ));  // index of this page in process's page table
-    if(fpit) {
-      pte_set_fpn(&(caller->mm->pgd[pgn]), fpit->fpn);
-
-    /* Tracking for later page replacement activities (if needed)
-      * Enqueue new usage page */
-    enlist_pgn_node(&caller->mm->fifo_pgn, pgn); //pgn+pgit
-    }
   }
-  ret_rg->rg_end += (pgit-1) * PAGING_PAGESZ;
+  caller->mram->used_fp_list = frames; // lưu lại frames đã sử dụng trong mram
+
+  /* Tracking for later page replacement activities (if needed)
+   * Enqueue new usage page */
 
   return 0;
 }
@@ -178,7 +220,7 @@ int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struc
    	int i = 0;
    	if(MEMPHY_get_freefp(caller->active_mswp, &swpfpn) == 0)
    	{
-   		__swap_cp_page(caller->mram, victim_fpn, caller->active_mswp, swpfpn); // copy content on victim rame to swap memory space
+   		__swap_cp_page(caller->mram, victim_fpn, caller->active_mswp, swpfpn); // copy content on victim frame to swap memory space
    		struct memphy_struct* mswp = (struct memphy_struct*)caller->mswp;
    		for(i = 0; i < PAGING_MAX_MMSWP; i++) 
    		{

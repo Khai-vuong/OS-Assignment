@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "queue.h"
-
-
+#define FALSE 0;
 int empty(struct queue_t *q)
 {
         if (q == NULL)
@@ -10,49 +9,75 @@ int empty(struct queue_t *q)
         return (q->size == 0);
 }
 
-
 void enqueue(struct queue_t *q, struct pcb_t *proc)
 {
         /* TODO: put a new process to queue [q] */
-        // int sizeOFqueue = q->size;
-        // if(sizeOFqueue<MAX_QUEUE_SIZE && sizeOFqueue>=0)
-        // {
-        //         q->proc[sizeOFqueue]=proc;
-        //         q->size = sizeOFqueue+1;
-        // }
-        if(!q || !proc) return;
-        if(q->size >= MAX_QUEUE_SIZE) return;
-        q->proc[q->size] = proc;
-        q->size++;
-        return;
-}
-
-
-struct pcb_t * dequeue(struct queue_t * q) {
-    if (q->size <= 0) {
-        return NULL; // Queue is empty
-    }
-
-
-    // Find the index of the process with the highest priority
-    int highestPriorityIndex = 0;
-    for (int i = 1; i < q->size; i++) {
-        if (q->proc[i]->prio < q->proc[highestPriorityIndex]->prio) {
-            highestPriorityIndex = i;
+        int proc_queue_is_having = q->size;
+        if (q == NULL)
+        {
+                perror("Queue is NULL !\n");
+                exit(1);
         }
-    }
-
-
-    // Store the highest priority process
-    struct pcb_t * highest_priority_proc = q->proc[highestPriorityIndex];
-
-
-    // Shift the remaining processes in the queue
-    for (int i = highestPriorityIndex; i < q->size - 1; i++) {
-        q->proc[i] = q->proc[i + 1];
-    }
-    q->size--;
-
-
-    return highest_priority_proc;
+        else if (proc_queue_is_having >= MAX_QUEUE_SIZE)
+        {
+                perror("Queue is full !\n");
+                exit(1);
+        }
+        else if (proc_queue_is_having < MAX_QUEUE_SIZE)
+        {
+                q->proc[proc_queue_is_having] = proc;
+                q->size = proc_queue_is_having + 1;
+        }
 }
+
+struct pcb_t *dequeue(struct queue_t *q)
+{
+        /* TODO: return a pcb whose prioprity is the highest
+         * in the queue [q] and remember to remove it from q
+         * */
+        int proc_queue_is_having = q->size;
+        if (proc_queue_is_having <= 0 || q == NULL)
+        {
+                return NULL;
+        }
+        else
+        {
+                struct pcb_t *temp = q->proc[0];
+        // #ifdef FALSE
+        //         for (int i = 0; i < proc_queue_is_having - 1; i++)
+        //         {
+        //                 if (q->proc[i] && q->proc[i + 1])
+        //                 {
+        //                         q->proc[i] = q->proc[i + 1];
+        //                 }
+        //         }
+        //         q->proc[proc_queue_is_having - 1] = NULL;
+        //         q->size--;
+        //         return temp;
+        // #else
+                uint32_t flag_prio = temp->priority;
+                int pos = 0;
+                for (int i = 0; i < proc_queue_is_having; i++)
+                {
+                        uint32_t this_prio = q->proc[i]->priority;
+                        if (flag_prio < this_prio)
+                        {
+                                flag_prio = this_prio;
+                                pos = i;
+                        }
+                }
+                temp = q->proc[pos];
+                for (int i = pos; i < proc_queue_is_having - 1; i++)
+                {
+                        if (q->proc[i] && q->proc[i + 1])
+                        {
+                                q->proc[i] = q->proc[i + 1];
+                        }
+                }
+                q->proc[proc_queue_is_having - 1] = NULL;
+                q->size--;
+                return temp;
+        //#endif
+
+        }    
+}   

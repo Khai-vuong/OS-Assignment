@@ -152,9 +152,14 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
     return -1;
   }
 
-  /* TODO: Manage the collect freed region to freerg_list */
-  rgnode->rg_start = caller->mm->symrgtbl[rgid].rg_start;
-  rgnode->rg_end = caller->mm->symrgtbl[rgid].rg_end;
+
+  /* TODO: Manage the collect freed region to freerg_list         DONE*/
+  struct vm_rg_struct *target = get_symrg_byid(caller->mm, rgid);
+  rgnode->rg_start = target->rg_start;
+  rgnode->rg_end = target->rg_end;
+
+  //IDK do I need this?
+  // target->rg_start = target->rg_end = -1;
 
   /*enlist the obsoleted memory region */
   enlist_vm_freerg_list(caller->mm, rgnode);
@@ -208,8 +213,11 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
       int vicfpn = PAGING_FPN(vic_pte);
       int swpfpn;
       MEMPHY_get_freefp(caller->active_mswp, &swpfpn);
+
+      //swap  RAM -> SWAP
       __swap_cp_page(caller->mram, vicfpn, caller->active_mswp, swpfpn);
       pte_set_swap(&mm->pgd[vicpgn], 0, swpfpn);
+
       new_fpn = vicfpn;
     }
     pte_set_fpn(&mm->pgd[pgn], new_fpn);
@@ -217,9 +225,9 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
   else if (pte & PAGING_PTE_SWAPPED_MASK)
   { /* Page is not online, make it actively living */
     int vicpgn, swpfpn;
-    int tgtfpn = PAGING_SWP(pte);
+    int target_fpn = PAGING_SWP(pte);
 
-    /* TODO: Play with your paging theory here */
+    /* TODO: Play with your paging theory here      DONE*/
     /* Find victim page */
     find_victim_page(caller->mm, &vicpgn);
     uint32_t vic_pte = mm->pgd[vicpgn];
@@ -234,7 +242,7 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
     __swap_cp_page(caller->mram, vicfpn, caller->active_mswp, swpfpn);
     /* Copy target frame from swap to mem */
     //__swap_cp_page();
-__swap_cp_page(caller->active_mswp, tgtfpn, caller->mram, vicfpn);
+    __swap_cp_page(caller->active_mswp, target_fpn, caller->mram, vicfpn);
 
     /* Update page table */
     // pte_set_swap() &mm->pgd;
@@ -488,7 +496,7 @@ int inc_vma_limit(struct pcb_t *caller, int vmaid, int inc_sz)    //Increase vma
   /* The obtained vm area (only)
    * now will be alloc real ram region */
   cur_vma->vm_end += inc_sz;
-  cur_vma->sbrk += inc_sz; // Mycode
+  cur_vma->sbrk += inc_sz;
   if (vm_map_ram(caller, area->rg_start, area->rg_end,
                  old_end, incnumpage, newrg) < 0)
     return -1; /* Map the memory to MEMRAM */
@@ -521,7 +529,7 @@ int find_victim_page(struct mm_struct *mm, int *retpgn)
     cur_pg = cur_pg->pg_next;
   }
 
-  *retpgn = malloc(sizeof(int));
+  *retpgn = (int*)malloc(sizeof(int));
   if (retpgn == NULL) {
     return -1;  //Alloc new int fail
   }
