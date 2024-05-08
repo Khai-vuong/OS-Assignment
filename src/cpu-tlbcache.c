@@ -19,8 +19,10 @@
 
 #include "mm.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 #define init_tlbcache(mp,sz,...) init_memphy(mp, sz, (1, ##__VA_ARGS__))
+
 
 /*
  *  tlb_cache_read read TLB cache device
@@ -29,12 +31,16 @@
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE value)
+int tlb_cache_read(struct memphy_struct * tlb, int pid, int pgnum, BYTE * value)
 {
    /* TODO: the identify info is mapped to 
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
-    */
+   */
+   if (tlb == NULL || tlb->storage[pgnum^pid] == -1){
+      return -1;
+   }
+
    return 0;
 }
 
@@ -45,15 +51,18 @@ int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE value)
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value)
+int tlb_cache_write(struct memphy_struct *tlb, int pid, int pgnum, BYTE value)
 {
    /* TODO: the identify info is mapped to 
     *      cache line by employing:
     *      direct mapped, associated mapping etc.
     */
+      if (tlb == NULL) {
+        return -1;  // Return error if the input pointer is invalid
+    }
+   tlb->storage[pgnum^pid] = value;
    return 0;
 }
-
 /*
  *  TLBMEMPHY_read natively supports MEMPHY device interfaces
  *  @mp: memphy struct
@@ -100,7 +109,10 @@ int TLBMEMPHY_dump(struct memphy_struct * mp)
    /*TODO dump memphy contnt mp->storage 
     *     for tracing the memory content
     */
-
+   for (int i = 0; i < mp->maxsz; i++) {
+      if(mp->storage[i] != -1)
+        printf("TLB Entry %d: %d\n", i, mp->storage[i]);
+   }
    return 0;
 }
 
@@ -112,7 +124,10 @@ int init_tlbmemphy(struct memphy_struct *mp, int max_size)
 {
    mp->storage = (BYTE *)malloc(max_size*sizeof(BYTE));
    mp->maxsz = max_size;
-
+   // mp->pid_hold = -1;
+   for(int i = 0; i < max_size; i++){
+      mp->storage[i] = -1;
+   }
    mp->rdmflg = 1;
 
    return 0;

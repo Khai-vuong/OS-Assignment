@@ -6,7 +6,8 @@
 
 #include "mm.h"
 #include <stdlib.h>
-
+#include <stdio.h>
+#include <string.h>
 /*
  *  MEMPHY_mv_csr - move MEMPHY cursor
  *  @mp: memphy struct
@@ -158,22 +159,24 @@ int MEMPHY_get_freefp(struct memphy_struct *mp, int *retfpn)
 
 int MEMPHY_dump(struct memphy_struct *mp)
 {
-   /*TODO dump memphy contnt mp->storage
-    *     for tracing the memory content    DONE?
-    */
-   if (!mp || !mp->storage)
-      return -1;
+    /*TODO dump memphy contnt mp->storage 
+     *     for tracing the memory content
+     */
+    char result[100];
+    strcpy(result, "Memory content-[pos, content]: ");
+    char temp[100];
+    if(mp && mp->storage){
+      for(int i =0; i<mp->maxsz; i++){
+         if(mp->storage[i] != (char)0){
+            sprintf(temp, "[%d, %d]", i, mp->storage[i]);
+            strcat(result, temp);
+         }
+      }
+      strcat(result, "\n\0");
+    }
+    printf("%s",result);
 
-   printf("================MEMORY CONTENT===============\n");
-   printf("Address:    Content \n");
-   for (int i = 0; i < mp->maxsz; i++)
-   {
-      if (mp->storage[i])
-         printf("0x%08x: %08x \n", i, mp->storage[i]);
-   }
-
-   free(mp->storage);
-   return 0;
+    return 0;
 }
 
 int MEMPHY_put_freefp(struct memphy_struct *mp, int fpn)
@@ -207,4 +210,4 @@ int init_memphy(struct memphy_struct *mp, int max_size, int randomflg)
    return 0;
 }
 
-// #endif
+//#endif
