@@ -11,7 +11,6 @@ static pthread_mutex_t queue_lock;
 
 #ifdef MLQ_SCHED
 static struct queue_t mlq_ready_queue[MAX_PRIO];
-static int32_t slot[MAX_PRIO];
 #endif
 
 int queue_empty(void)
@@ -33,7 +32,6 @@ void init_scheduler(void)
 	for (i = 0; i < MAX_PRIO; i++)
 	{
 		mlq_ready_queue[i].size = 0;
-		slot[i] = MAX_PRIO - i;
 	}
 #endif
 	ready_queue.size = 0;
@@ -57,16 +55,13 @@ struct pcb_t *get_mlq_proc(void)
 	pthread_mutex_lock(&queue_lock);
 	for (int i = 0; i < MAX_PRIO; i++)
 	{
-		if (empty(&mlq_ready_queue[i]) || slot[i] == 0)
+		if (empty(&mlq_ready_queue[i]))
 		{
-			slot[i] = MAX_PRIO - i;
 			continue;
 		}
-		else if (mlq_ready_queue[i].size > 0 && slot[i] > 0)
+		else
 		{
-
 			proc = dequeue(&mlq_ready_queue[i]);
-			slot[i]--;
 			break;
 		}
 	}
