@@ -1,4 +1,4 @@
-// #ifdef MM_PAGING
+//#ifdef MM_PAGING
 /*
  * PAGING based Memory Management
  * Memory management unit mm/mm.c
@@ -17,12 +17,10 @@ int init_pte(uint32_t *pte,
              int drt,    // dirty
              int swp,    // swap
              int swptyp, // swap type
-             int swpoff) // swap offset
+             int swpoff) //swap offset
 {
-  if (pre != 0)
-  {
-    if (swp == 0)
-    { // Non swap ~ page online
+  if (pre != 0) {
+    if (swp == 0) { // Non swap ~ page online
       if (fpn == 0) 
         return -1; // Invalid setting
 
@@ -32,9 +30,7 @@ int init_pte(uint32_t *pte,
       CLRBIT(*pte, PAGING_PTE_DIRTY_MASK);
 
       SETVAL(*pte, fpn, PAGING_PTE_FPN_MASK, PAGING_PTE_FPN_LOBIT); 
-    }
-    else
-    { // page swapped
+    } else { // page swapped
       SETBIT(*pte, PAGING_PTE_PRESENT_MASK);
       SETBIT(*pte, PAGING_PTE_SWAPPED_MASK);
       CLRBIT(*pte, PAGING_PTE_DIRTY_MASK);
@@ -80,91 +76,34 @@ int pte_set_fpn(uint32_t *pte, int fpn)
 }
 
 
-
-/*
+/* 
  * vmap_page_range - map a range of page at aligned address
  */
-// int vmap_page_range(struct pcb_t *caller,           // process call
-//                     int addr,                       // start address which is aligned to pagesz
-//                     int pgnum,                      // num of mapping page
-//                     struct framephy_struct *frames, // list of the mapped frames
-//                     struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
-// {                                                   // no guarantee all given pages are mapped
-//   uint32_t *pte = malloc(sizeof(uint32_t));
-//   struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
-//   // int  fpn;
-//   int pgit = 0;
-//   int pgn = PAGING_PGN(addr);
-
-//   ret_rg->rg_end = ret_rg->rg_start = addr; // at least the very first space is usable
-
-//   fpit->fp_next = frames;
-
-//   /* TODO map range of frame to address space 
-//    *      [addr to addr + pgnum*PAGING_PAGESZ
-//    *      in page table caller->mm->pgd[]     DONE
-//    */
-
-//  /*
-// * dựa vào PAGING_PGN(x) để lấy thứ tự trong page table -> pagetable[i] =fpit->pgn | Một số thông tin khác
-//   * usernumber thì k biết ghi gì
-//   *  một số khác thì tùy chỉnh
-  
-//   */
-//   for(pgit = 0; pgit < pgnum; pgit++) {
-//     fpit = fpit->fp_next;
-//     pgn = PAGING_PGN((addr + pgit*PAGING_PAGESZ));  // index of this page in process's page table
-//     if(fpit) {
-//       pte_set_fpn(&(caller->mm->pgd[pgn]), fpit->fpn);  //set fpn for pte
-
-//     /* Tracking for later page replacement activities (if needed)
-//       * Enqueue new usage page */
-//     enlist_pgn_node(&caller->mm->fifo_pgn, pgn); //pgn+pgit
-//     }
-//   }
-//   ret_rg->rg_end += (pgit-1) * PAGING_PAGESZ;
-
-  
-
-//   return 0;
-// }
-
-int vmap_page_range(struct pcb_t *caller,           // process call
-                    int addr,                       // start address which is aligned to pagesz
-                    int pgnum,                      // num of mapping page
-                    struct framephy_struct *frames, // list of the mapped frames
-                    struct vm_rg_struct *ret_rg)    // return mapped region, the real mapped fp
-{                                                   // no guarantee all given pages are mapped
-  // uint32_t * pte = malloc(sizeof(uint32_t));
-  struct framephy_struct *fpit = frames;
-  // int  fpn;
+int vmap_page_range(struct pcb_t *caller, // process call
+                                int addr, // start address which is aligned to pagesz
+                               int pgnum, // num of mapping page
+           struct framephy_struct *frames,// list of the mapped frames
+              struct vm_rg_struct *ret_rg)// return mapped region, the real mapped fp
+{                                         // no guarantee all given pages are mapped
+  //uint32_t * pte = malloc(sizeof(uint32_t));
+  struct framephy_struct *fpit = malloc(sizeof(struct framephy_struct));
+  //int  fpn;
   int pgit = 0;
-  int pgn = PAGING_PGN(addr); // số trang bắt đầu
+  int pgn = PAGING_PGN(addr);
 
-  ret_rg->rg_start = addr; // at least the very first space is usable
-  ret_rg->rg_end = ret_rg->rg_start + pgnum * PAGING_PAGESZ;
-  // trả về vùng nhớ được ánh xạ
+  ret_rg->rg_end = ret_rg->rg_start = addr; // at least the very first space is usable
 
-  // fpit->fp_next = frames;
+  fpit->fp_next = frames;
 
-  /* TODO map range of frame to address space
+  /* TODO map range of frame to address space 
    *      [addr to addr + pgnum*PAGING_PAGESZ
    *      in page table caller->mm->pgd[]
    */
-  for (; pgit < pgnum; ++pgit)
-  {
 
-    if (fpit == NULL)
-      break;
-    pte_set_fpn(&caller->mm->pgd[pgn + pgit], fpit->fpn); // set fpn cho pte
-    // free(fpit);
-    enlist_pgn_node(&caller->mm->fifo_pgn, pgn + pgit);
-    fpit = fpit->fp_next;
-  }
-  caller->mram->used_fp_list = frames; // lưu lại frames đã sử dụng trong mram
+   /* Tracking for later page replacement activities (if needed)
+    * Enqueue new usage page */
+   enlist_pgn_node(&caller->mm->fifo_pgn, pgn+pgit);
 
-  /* Tracking for later page replacement activities (if needed)
-   * Enqueue new usage page */
 
   return 0;
 }
@@ -179,81 +118,22 @@ int vmap_page_range(struct pcb_t *caller,           // process call
 int alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struct** frm_lst)
 {
   int pgit, fpn;
-  struct framephy_struct *newfp_str;
+  //struct framephy_struct *newfp_str;
 
   for(pgit = 0; pgit < req_pgnum; pgit++)
   {
     if(MEMPHY_get_freefp(caller->mram, &fpn) == 0)
-    {
-   	newfp_str = (struct framephy_struct*) malloc(sizeof(struct framephy_struct));
-   	newfp_str->fpn = fpn;
-   	newfp_str->owner = caller->mm;
-   	if(!*frm_lst)
-   		*frm_lst = newfp_str;
-   	else {
-   		newfp_str->fp_next = *frm_lst;
-   		*frm_lst = newfp_str;
-   	}
-   	newfp_str->fp_next = caller->mram->used_fp_list;
-   	caller->mram->used_fp_list =newfp_str;
+   {
      
    } else {  // ERROR CODE of obtaining somes but not enough frames
-   	int victim_fpn, victim_pgn, victim_pte;
-   	int swpfpn = -1;
-   	if(find_victim_page(caller->mm, &victim_pgn) < 0 )
-   		return -1;
-   	victim_pte = caller->mm->pgd[victim_pgn];
-   	victim_fpn = PAGING_FPN(victim_pte);
-   	//*****************
-   	newfp_str = (struct framephy_struct*) malloc(sizeof(struct framephy_struct));
-   	newfp_str->fpn = victim_fpn;
-   	newfp_str->owner = caller->mm;
-   	
-   	if(!*frm_lst)
-   		*frm_lst = newfp_str;
-   	else {
-   		newfp_str->fp_next = *frm_lst;
-   		*frm_lst = newfp_str;
-   	}
-   	
-   	//******
-   	int i = 0;
-   	if(MEMPHY_get_freefp(caller->active_mswp, &swpfpn) == 0)
-   	{
-   		__swap_cp_page(caller->mram, victim_fpn, caller->active_mswp, swpfpn); // copy content on victim frame to swap memory space
-   		struct memphy_struct* mswp = (struct memphy_struct*)caller->mswp;
-   		for(i = 0; i < PAGING_MAX_MMSWP; i++) 
-   		{
-   			if(mswp + i == caller->active_mswp)
-   				break;
-   		}
-   	}
-   	else
-   	{
-   		struct memphy_struct* mswp = (struct memphy_struct*) caller->mswp;
-   		swpfpn = -1;
-   		for(i = 0; i < PAGING_MAX_MMSWP; i++)
-   		{
-   			if(MEMPHY_get_freefp(mswp + i, &swpfpn) == 0)
-   			{
-   				__swap_cp_page(caller->mram, victim_fpn, mswp + i, swpfpn); //copy content on victim frame to swap memory space
-   				break;
-   			}
-   		}
-   	} 
-   	if(swpfpn == -1)
-   		return -3000;
-   	pte_set_swap(&caller->mm->pgd[victim_pgn], i, swpfpn);
-   	
-   }
-   
+   } 
  }
 
   return 0;
 }
 
 
-/*
+/* 
  * vm_map_ram - do the mapping all vm are to ram storage device
  * @caller    : caller
  * @astart    : vm area start
@@ -271,7 +151,7 @@ int vm_map_ram(struct pcb_t *caller, int astart, int aend, int mapstart, int inc
    *FATAL logic in here, wrong behaviour if we have not enough page
    *i.e. we request 1000 frames meanwhile our RAM has size of 3 frames
    *Don't try to perform that case in this simple work, it will result
-   *in endless procedure of swap-off to get frame and we have not provide
+   *in endless procedure of swap-off to get frame and we have not provide 
    *duplicate control mechanism, keep it simple
    */
   ret_alloc = alloc_pages_range(caller, incpgnum, &frm_lst);
@@ -360,7 +240,7 @@ struct vm_rg_struct* init_vm_rg(int rg_start, int rg_end)
 int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct* rgnode)
 {
   rgnode->rg_next = *rglist;
-*rglist = rgnode;
+  *rglist = rgnode;
 
   return 0;
 }
@@ -384,7 +264,7 @@ int print_list_fp(struct framephy_struct *ifp)
    if (fp == NULL) {printf("NULL list\n"); return -1;}
    printf("\n");
    while (fp != NULL )
-  {
+   {
        printf("fp[%d]\n",fp->fpn);
        fp = fp->fp_next;
    }
@@ -394,13 +274,13 @@ int print_list_fp(struct framephy_struct *ifp)
 
 int print_list_rg(struct vm_rg_struct *irg)
 {
-  struct vm_rg_struct *rg = irg;
-
-  printf("print_list_rg: ");
+   struct vm_rg_struct *rg = irg;
+ 
+   printf("print_list_rg: ");
    if (rg == NULL) {printf("NULL list\n"); return -1;}
-  printf("\n");
-  while (rg != NULL)
-  {
+   printf("\n");
+   while (rg != NULL)
+   {
        printf("rg[%ld->%ld]\n",rg->rg_start, rg->rg_end);
        rg = rg->rg_next;
    }
@@ -464,4 +344,4 @@ int print_pgtbl(struct pcb_t *caller, uint32_t start, uint32_t end)
   return 0;
 }
 
-// #endif
+//#endif
