@@ -29,21 +29,13 @@
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE *value) {
-    if (mp == NULL || value == NULL)
-        return -1;
-
-    // Đọc dữ liệu từ TLB Cache tại trang pgnum
-    int frame_num;
-    int result = TLBMEMPHY_read(mp, pgnum, &frame_num);
-
-    if (result != 0)
-        return -1; // Đọc thất bại
-
-    // Gán giá trị của frame number cho giá trị trả về
-    *value = (BYTE)frame_num;
-
-    return 0;
+int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE value)
+{
+   /* TODO: the identify info is mapped to 
+    *      cache line by employing:
+    *      direct mapped, associated mapping etc.
+    */
+   return 0;
 }
 
 /*
@@ -53,14 +45,13 @@ int tlb_cache_read(struct memphy_struct * mp, int pid, int pgnum, BYTE *value) {
  *  @pgnum: page number
  *  @value: obtained value
  */
-int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value) {
-    if (mp == NULL)
-        return -1;
-
-    // Ghi giá trị frame number vào TLB Cache tại trang pgnum
-    int result = TLBMEMPHY_write(mp, pgnum, value);
-
-    return result;
+int tlb_cache_write(struct memphy_struct *mp, int pid, int pgnum, BYTE value)
+{
+   /* TODO: the identify info is mapped to 
+    *      cache line by employing:
+    *      direct mapped, associated mapping etc.
+    */
+   return 0;
 }
 
 /*
@@ -104,16 +95,13 @@ int TLBMEMPHY_write(struct memphy_struct * mp, int addr, BYTE data)
  */
 
 
-int TLBMEMPHY_dump(struct memphy_struct * mp) {
-    if (mp == NULL)
-        return -1;
+int TLBMEMPHY_dump(struct memphy_struct * mp)
+{
+   /*TODO dump memphy contnt mp->storage 
+    *     for tracing the memory content
+    */
 
-    // In ra nội dung của TLB Cache (mp->storage)
-    for (int i = 0; i < mp->maxsz; ++i) {
-        printf("Page %d: Frame %d\n", i, mp->storage[i]);
-    }
-
-    return 0;
+   return 0;
 }
 
 
