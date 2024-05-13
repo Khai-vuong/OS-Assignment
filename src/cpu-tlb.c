@@ -37,17 +37,21 @@ int tlb_flush_tlb_of(struct pcb_t *proc, struct memphy_struct * mp)
  *@size: allocated size 
  *@reg_index: memory region ID (used to identify variable in symbole table)
  */
-int tlballoc(struct pcb_t *proc, uint32_t size, uint32_t reg_index)
-{
-  int addr, val;
+int tlballoc(struct pcb_t *proc, uint32_t size, uint32_t reg_index) {
+    int addr, val;
 
-  /* By default using vmaid = 0 */
-  val = __alloc(proc, 0, reg_index, size, &addr);
+    /* Cấp phát vùng nhớ thông qua hàm __alloc */
+    val = __alloc(proc, 0, reg_index, size, &addr);
 
-  /* TODO update TLB CACHED frame num of the new allocated page(s)*/
-  /* by using tlb_cache_read()/tlb_cache_write()*/
+    if (val == 0) { // Nếu cấp phát thành công
+        /* Tính toán frame number cho trang mới được cấp phát */
+        int frame_num = addr / PAGING_PAGESZ; // Tính frame number bằng cách chia địa chỉ cho kích thước của mỗi trang
 
-  return val;
+        /* Cập nhật TLB Cache với frame number của trang mới được cấp phát */
+        tlb_cache_write(proc->tlb, proc->pid, addr / PAGING_PAGESZ, frame_num);
+    }
+
+    return val;
 }
 
 /*pgfree - CPU TLB-based free a region memory
@@ -55,14 +59,21 @@ int tlballoc(struct pcb_t *proc, uint32_t size, uint32_t reg_index)
  *@size: allocated size 
  *@reg_index: memory region ID (used to identify variable in symbole table)
  */
-int tlbfree_data(struct pcb_t *proc, uint32_t reg_index)
-{
-  __free(proc, 0, reg_index);
+int tlbfree_data(struct pcb_t *proc, uint32_t reg_index) {
+    // Giải phóng vùng nhớ của trang
+    __free(proc, 0, reg_index);
 
-  /* TODO update TLB CACHED frame num of freed page(s)*/
-  /* by using tlb_cache_read()/tlb_cache_write()*/
+    // Lấy địa chỉ bắt đầu của trang được giải phóng từ địa chỉ của biến đã giải phóng
+    addr_t start_addr = proc->regs[reg_index];
 
-  return 0;
+    // Tính toán trang số (page number) của trang được giải phóng
+    int page_num = start_addr / PAGING_PAGESZ;
+
+    // Cập nhật TLB Cache để xóa thông tin của trang đã giải phóng
+    tlb_cache_write(proc->tlb, proc->pid, page_num, -1);
+
+    // Trả về 0 để biểu thị thành công
+    return 0;
 }
 
 
@@ -75,33 +86,34 @@ int tlbfree_data(struct pcb_t *proc, uint32_t reg_index)
 int tlbread(struct pcb_t * proc, uint32_t source,
             uint32_t offset, 	uint32_t destination) 
 {
-  BYTE data, frmnum = -1;
-	
-  /* TODO retrieve TLB CACHED frame num of accessing page(s)*/
-  /* by using tlb_cache_read()/tlb_cache_write()*/
-  /* frmnum is return value of tlb_cache_read/write value*/
-	
+  BYTE data;
+    int frmnum = -1; // Định dạng của frmnum sửa đổi từ BYTE thành int
+
+    // Lấy số trang (page number) từ địa chỉ nguồn
+    int page_num = (proc->regs[source] + offset) / PAGING_PAGESZ;
+
+    // Lấy thông tin trang từ TLB Cache
+    frmnum = tlb_cache_read(proc->tlb, proc->pid, page_num, data);
+
 #ifdef IODUMP
-  if (frmnum >= 0)
-    printf("TLB hit at read region=%d offset=%d\n", 
-	         source, offset);
-  else 
-    printf("TLB miss at read region=%d offset=%d\n", 
-	         source, offset);
+    if (frmnum >= 0)
+        printf("TLB hit at read region=%d offset=%d\n", source, offset);
+    else 
+        printf("TLB miss at read region=%d offset=%d\n", source, offset);
 #ifdef PAGETBL_DUMP
-  print_pgtbl(proc, 0, -1); //print max TBL
+    print_pgtbl(proc, 0, -1); // In ra bảng trang
 #endif
-  MEMPHY_dump(proc->mram);
+    MEMPHY_dump(proc->mram); // In ra dữ liệu trong memory
 #endif
 
-  int val = __read(proc, 0, source, offset, &data);
+    int val = __read(proc, 0, source, offset, &data);
 
-  destination = (uint32_t) data;
+    destination = (uint32_t)data;
 
-  /* TODO update TLB CACHED with frame num of recent accessing page(s)*/
-  /* by using tlb_cache_read()/tlb_cache_write()*/
+    // Cập nhật TLB Cache với số trang mới được truy cập
+    tlb_cache_write(proc->tlb, proc->pid, page_num, frmnum);
 
-  return val;
+    return val;
 }
 
 /*tlbwrite - CPU TLB-based write a region memory
@@ -114,31 +126,31 @@ int tlbwrite(struct pcb_t * proc, BYTE data,
              uint32_t destination, uint32_t offset)
 {
   int val;
-  BYTE frmnum = -1;
+    BYTE frmnum = -1;
 
-  /* TODO retrieve TLB CACHED frame num of accessing page(s))*/
-  /* by using tlb_cache_read()/tlb_cache_write()
-  frmnum is return value of tlb_cache_read/write value*/
+    // Lấy số trang (page number) từ địa chỉ đích
+    int page_num = (proc->regs[destination] + offset) / PAGING_PAGESZ;
+
+    // Lấy thông tin trang từ TLB Cache
+    frmnum = tlb_cache_read(proc->tlb, proc->pid, page_num, data);
 
 #ifdef IODUMP
-  if (frmnum >= 0)
-    printf("TLB hit at write region=%d offset=%d value=%d\n",
-	          destination, offset, data);
-	else
-    printf("TLB miss at write region=%d offset=%d value=%d\n",
-            destination, offset, data);
+    if (frmnum >= 0)
+        printf("TLB hit at write region=%d offset=%d value=%d\n", destination, offset, data);
+    else
+        printf("TLB miss at write region=%d offset=%d value=%d\n", destination, offset, data);
 #ifdef PAGETBL_DUMP
-  print_pgtbl(proc, 0, -1); //print max TBL
+    print_pgtbl(proc, 0, -1); // In ra bảng trang
 #endif
-  MEMPHY_dump(proc->mram);
+    MEMPHY_dump(proc->mram); // In ra dữ liệu trong memory
 #endif
 
-  val = __write(proc, 0, destination, offset, data);
+    val = __write(proc, 0, destination, offset, data);
 
-  /* TODO update TLB CACHED with frame num of recent accessing page(s)*/
-  /* by using tlb_cache_read()/tlb_cache_write()*/
+    // Cập nhật TLB Cache với thông tin mới của trang đã được ghi
+    tlb_cache_write(proc->tlb, proc->pid, page_num, frmnum);
 
-  return val;
+    return val;
 }
 
 //#endif
